@@ -1,5 +1,5 @@
 /*
-    @author: 张文超
+    @author: ByZwc
     @file: "APP_math.c"
     @date: 2025_9_10
     @attention: 以下函数（包括滤波、温度曲线）只适用本硬件系统，不得移植到其他系统
@@ -205,7 +205,6 @@ float32_t APP_KalmanFilter_Ele(float32_t measured_ele)
         .r = KALMAN_ELE_R_MAX,
         .k = 0.0f};
 
-    /* 固定过程/测量噪声（与原实现一致） */
     kalman.q = KALMAN_ELE_Q_MIN;
     kalman.r = KALMAN_ELE_R_MAX;
 
@@ -221,7 +220,6 @@ float32_t APP_KalmanFilter_Ele(float32_t measured_ele)
 
 float GetLoadCurrent(uint16_t adcVlaue)
 {
-    uint16_t adc_raw = 0;      // ADC原始采样值
     uint16_t adc_limit = 0;    // 限幅后的值
     uint16_t adc_filtered = 0; // 卡尔曼滤波后的值
     uint16_t adc_iir = 0;      // FIR滤波后的值
@@ -229,22 +227,19 @@ float GetLoadCurrent(uint16_t adcVlaue)
     float voltage = 0.0f;      // 采样电阻两端电压(V)
     float current = 0.0f;      // 负载电流(A)
 
-    // 步骤1：读取ADC原始值
-    adc_raw = adcVlaue;
+    // 步骤1：限幅滤波
+    adc_limit = LimitFilter(adcVlaue);
 
-    // 步骤2：限幅滤波
-    adc_limit = LimitFilter(adc_raw);
-
-    // 步骤3：中位值滤波
+    // 步骤2：中位值滤波
     adc_median = median_filter(adc_limit);
 
-    // 步骤4：卡尔曼滤波
+    // 步骤3：卡尔曼滤波
     adc_filtered = APP_KalmanFilter_Ele(adc_median);
 
-    // 步骤5：FIR低通滤波
+    // 步骤4：FIR低通滤波
     adc_iir = FIR_LowpassFilter(adc_filtered);
 
-    // 步骤6：计算真实电流
+    // 步骤5：计算真实电流
     voltage = (float)adc_iir * ADC_REF_VOLTAGE / ADC_RESOLUTION; // 电压=ADC值×基准/分辨率
     current = voltage / SAMPLE_RESISTOR;                         // 电流=电压/采样电阻
 
@@ -291,10 +286,6 @@ float32_t APP_KalmanFilter_Power(float32_t measured_power, float32_t target_powe
         .r = KALMAN_POWER_R_MIN, // 默认测量噪声
         .k = 0.0f};
 
-    /* 可选：记录测量与目标差异（目前未用于自适应） */
-    kalman.diff = fabsf(measured_power - target_power);
-
-    /* 固定过程/测量噪声（与原实现一致） */
     kalman.q = KALMAN_POWER_Q_MAX;
     kalman.r = KALMAN_POWER_R_MIN;
 
@@ -357,8 +348,7 @@ void app_GetAdcVlaue_electricity_Task(void)
 
 #define COMPLEMENTARY_FILTER_VOLTAGE 24.0f
 
-// 互补滤波器函数：输入估计功率、测量功率，返回滤波结果
-// 参数：estPower-估计功率（单位：W），measPower-测量功率（单位：W）
+// 互补滤波器函数
 float APP_Power_complementaryFilter_Task(void)
 {
     float estPower = AllStatus_S.data_filter[SOLDERING_ELECTRICITY_NUM];       // 估计功率
@@ -367,16 +357,15 @@ float APP_Power_complementaryFilter_Task(void)
     float weight_meas = 0.0f;                                                  // 测量功率权重
     float filterResult;                                                        // 滤波结果
 
-    // 1. 根据功率范围动态分配权重（信任度）
     if (measPower > COMPLEMENTARY_FILTER_HIGH_POWER_THRESH) // 测量功率>200W：提高测量信任度
     {
-        weight_est = COMPLEMENTARY_FILTER_EST_WEIGHT_LOW;    // 估计权重降低
-        weight_meas = COMPLEMENTARY_FILTER_MEAS_WEIGHT_HIGH; // 测量权重提高
+        weight_est = COMPLEMENTARY_FILTER_EST_WEIGHT_LOW;    
+        weight_meas = COMPLEMENTARY_FILTER_MEAS_WEIGHT_HIGH; 
     }
-    else // 其余情况：估计功率信任度最高
+    else
     {
-        weight_est = COMPLEMENTARY_FILTER_EST_WEIGHT_HIGH;  // 估计权重提高
-        weight_meas = COMPLEMENTARY_FILTER_MEAS_WEIGHT_LOW; // 测量权重降低
+        weight_est = COMPLEMENTARY_FILTER_EST_WEIGHT_HIGH;  
+        weight_meas = COMPLEMENTARY_FILTER_MEAS_WEIGHT_LOW; 
     }
 
     // 2. 互补滤波核心计算（权重加权求和）
