@@ -359,13 +359,13 @@ float APP_Power_complementaryFilter_Task(void)
 
     if (measPower > COMPLEMENTARY_FILTER_HIGH_POWER_THRESH) // 测量功率>200W：提高测量信任度
     {
-        weight_est = COMPLEMENTARY_FILTER_EST_WEIGHT_LOW;    
-        weight_meas = COMPLEMENTARY_FILTER_MEAS_WEIGHT_HIGH; 
+        weight_est = COMPLEMENTARY_FILTER_EST_WEIGHT_LOW;
+        weight_meas = COMPLEMENTARY_FILTER_MEAS_WEIGHT_HIGH;
     }
     else
     {
-        weight_est = COMPLEMENTARY_FILTER_EST_WEIGHT_HIGH;  
-        weight_meas = COMPLEMENTARY_FILTER_MEAS_WEIGHT_LOW; 
+        weight_est = COMPLEMENTARY_FILTER_EST_WEIGHT_HIGH;
+        weight_meas = COMPLEMENTARY_FILTER_MEAS_WEIGHT_LOW;
     }
 
     // 2. 互补滤波核心计算（权重加权求和）
@@ -687,7 +687,7 @@ float32_t app_DisplayFilter_RC(float32_t Cur, float32_t Tar)
 
     if (AllStatus_S.OneState_TempOk)
     {
-        if ((uint32_t)AllStatus_S.pid_s.pid_out < AllStatus_S.pid_s.outPriod && ((cur_temp - tar_temp) < SOLDERING_TEMP_DISPLAY_REDUCE))
+        if ((uint32_t)AllStatus_S.pid_s.pid_out < AllStatus_S.pid_s.outPriod)
         {
             filtered[DISPLAY_FILTER_MUM - 1] = Tar; // 阶数切换
             filtered[DISPLAY_FILTER_MUM - 2] = Tar; // 阶数切换

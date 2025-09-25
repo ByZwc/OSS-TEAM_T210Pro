@@ -499,6 +499,7 @@ void app_SolderingTempDisplay(void)
         case SOLDERING_STATE_SLEEP_DEEP: // 进入深度睡眠
             if (!AllStatus_S.Seting.SetingPage)
                 Lcd_smgDowm3_SetErrorNum(DRIVE_SLEEP, 1);
+            AllStatus_S.OneState_TempOk = 0;
             break;
         case SOLDERING_STATE_OK: // 正常状态
             if (!AllStatus_S.Seting.SetingPage)
