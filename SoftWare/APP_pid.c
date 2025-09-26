@@ -69,8 +69,10 @@ void app_pidControl(uint16_t TarTemp, float32_t CurTemp)
 
         if (AllStatus_S.pid_s.pid_iItem > AllStatus_S.pid_s.pid_integration_max)
             AllStatus_S.pid_s.pid_iItem = AllStatus_S.pid_s.pid_integration_max;
-        if (AllStatus_S.pid_s.pid_iItem < -AllStatus_S.pid_s.pid_integration_max)
-            AllStatus_S.pid_s.pid_iItem = -AllStatus_S.pid_s.pid_integration_max;
+        /* if (AllStatus_S.pid_s.pid_iItem < (-AllStatus_S.pid_s.pid_integration_max))
+            AllStatus_S.pid_s.pid_iItem = -AllStatus_S.pid_s.pid_integration_max; */
+        if (AllStatus_S.pid_s.pid_iItem < 0.0f)
+            AllStatus_S.pid_s.pid_iItem = 0.0f;
 
         AllStatus_S.pid_s.pid_out = AllStatus_S.pid_s.pid_pItem + AllStatus_S.pid_s.pid_iItem + AllStatus_S.pid_s.pid_dItem;
 
@@ -91,7 +93,7 @@ void app_pidControl(uint16_t TarTemp, float32_t CurTemp)
         if (AllStatus_S.pid_s.pid_out > AllStatus_S.pid_s.pid_outMax)
             AllStatus_S.pid_s.pid_out = AllStatus_S.pid_s.pid_outMax;
 
-        if (CurTemp < (TarTemp - AllStatus_S.pid_s.diffTempOutMaxPWM))
+        if ((CurTemp < (TarTemp - AllStatus_S.pid_s.diffTempOutMaxPWM)) && (TarTemp > 150)) // 温度过低，强制输出最大功率
             AllStatus_S.pid_s.pid_out = AllStatus_S.pid_s.pid_outMax;
 
         Drive_MosSwitch_SetDuty(AllStatus_S.pid_s.pid_out);
@@ -103,6 +105,7 @@ void app_pidOutCmd(void)
     if (AllStatus_S.SolderingState > SOLDERING_STATE_OK)
     {
         AllStatus_S.pid_s.outCmd = 0;
+        AllStatus_S.pid_s.pid_out = 0.0f;
         AllStatus_S.pid_s.pid_iItem = 0.0f;
         AllStatus_S.pid_s.pid_iItemCmd = 0.0f;
         TIM3->CCR2 = 0;
