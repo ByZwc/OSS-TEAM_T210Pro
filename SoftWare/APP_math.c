@@ -674,6 +674,7 @@ void app_pid_Task(void)
 #define DISPLAY_FILTER_MUM 6            // 阶数
 #define RC_FILTER_DIFF_MAX 25.0f
 #define RC_FILTER_DIFF_MIN 10.0f
+#define DISPLAY_FILTER_RESET_COUNT 4
 // 自适应RC滤波
 float32_t app_DisplayFilter_RC(float32_t Cur, float32_t Tar)
 {
@@ -689,19 +690,15 @@ float32_t app_DisplayFilter_RC(float32_t Cur, float32_t Tar)
     {
         if ((uint32_t)AllStatus_S.pid_s.pid_out < AllStatus_S.pid_s.outPriod)
         {
-            filtered[DISPLAY_FILTER_MUM - 1] = Tar; // 阶数切换
-            filtered[DISPLAY_FILTER_MUM - 2] = Tar; // 阶数切换
-            filtered[DISPLAY_FILTER_MUM - 3] = Tar; // 阶数切换
-            filtered[DISPLAY_FILTER_MUM - 4] = Tar; // 阶数切换
+            for (int i = 1; i <= DISPLAY_FILTER_RESET_COUNT; i++) {
+                filtered[DISPLAY_FILTER_MUM - i] = Tar; // 阶数切换
+            }
         }
         if (!oneState)
         {
-            filtered[DISPLAY_FILTER_MUM - 1] = Tar; // 阶数切换
-            filtered[DISPLAY_FILTER_MUM - 2] = Tar; // 阶数切换
-            filtered[DISPLAY_FILTER_MUM - 3] = Tar; // 阶数切换
-            filtered[DISPLAY_FILTER_MUM - 4] = Tar; // 阶数切换
-            filtered[DISPLAY_FILTER_MUM - 5] = Tar; // 阶数切换
-            filtered[DISPLAY_FILTER_MUM - 6] = Tar; // 阶数切换
+            for (int i = 1; i <= DISPLAY_FILTER_MUM; i++) {
+                filtered[DISPLAY_FILTER_MUM - i] = Tar; // 阶数切换
+            }
             oneState = 1;
         }
 
@@ -754,7 +751,7 @@ float32_t app_DisplayFilter_kalman(float32_t Cur, float32_t Tar)
     /* 计算差值并保存到结构体 */
     kalman.diff = fabsf(cur_temp - tar_temp);
 
-    /* 自适应调整过程噪声协方差Q */
+    /* 调整过程噪声协方差Q */
     float32_t q;
     if (kalman.diff < KALMAN_DIFF_THRESH)
         q = KALMAN_MIN_Q + (KALMAN_BASE_Q - KALMAN_MIN_Q) * (kalman.diff / KALMAN_DIFF_THRESH);
@@ -766,7 +763,7 @@ float32_t app_DisplayFilter_kalman(float32_t Cur, float32_t Tar)
         q = KALMAN_MAX_Q;
     kalman.q = q;
 
-    /* 自适应调整测量噪声协方差R */
+    /* 调整测量噪声协方差R */
     float32_t r;
     if (kalman.diff < KALMAN_DIFF_THRESH)
         r = KALMAN_R_MIN + (KALMAN_R_BASE - KALMAN_R_MIN) * (kalman.diff / KALMAN_DIFF_THRESH);
