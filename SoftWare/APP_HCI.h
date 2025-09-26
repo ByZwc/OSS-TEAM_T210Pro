@@ -16,4 +16,5 @@ void app_Lcd_SleepStateCheck_Task(void);     // 函数调用周期（500ms）
 void app_IconBlink_Task(void);               // 选项闪烁
 void app_SolderingTempDisplay(void);         // 实时温度显示
 void APP_SleepCloseBackLight_Task(void);     // 休眠关闭背光
+void APP_SleepBackLight_Task(void);          // 休眠背光变暗
 #endif
