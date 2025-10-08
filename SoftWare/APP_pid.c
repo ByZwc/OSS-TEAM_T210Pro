@@ -19,21 +19,46 @@ static float32_t app_pid_PCmd(uint16_t TarTemp, float32_t CurTemp)
     return addCoef;
 }
 
+#define PID_ISET_MIN_TEMP 100
+#define PID_ISET_MAX_TEMP 450
+#define PID_ISET_MIN_COEF 0.05f
+#define PID_ISET_MAX_COEF 3.0f
+// 自适应I系数
+static float32_t app_pid_iSetRange(uint16_t TarTemp)
+{
+    // TarTemp: PID_ISET_MIN_TEMP -> PID_ISET_MIN_COEF, PID_ISET_MAX_TEMP -> PID_ISET_MAX_COEF, linear mapping
+    if (TarTemp <= PID_ISET_MIN_TEMP)
+        return PID_ISET_MIN_COEF;
+    if (TarTemp >= PID_ISET_MAX_TEMP)
+        return PID_ISET_MAX_COEF;
+    // Linear interpolation
+    return PID_ISET_MIN_COEF + (PID_ISET_MAX_COEF - PID_ISET_MIN_COEF) * (TarTemp - PID_ISET_MIN_TEMP) / (float)(PID_ISET_MAX_TEMP - PID_ISET_MIN_TEMP);
+}
+
+// 积分引入引出
 static void app_pid_iCmd(uint16_t TarTemp, float32_t CurTemp)
 {
     float32_t diff = fabsf(CurTemp - TarTemp);
 
-    switch (AllStatus_S.SolderingModelNumber)
+    if (AllStatus_S.SolderingState == SOLDERING_STATE_OK)
     {
-    case SOLDERING_MODEL_T115:
-        Drive_MosSwitch210_PWMOut(); // 开启115PWM输出
-        break;
-    case SOLDERING_MODEL_T210:
-        Drive_MosSwitch210_PWMOut(); // 开启210PWM输出
-        break;
-    case SOLDERING_MODEL_T245:
-        Drive_MosSwitch245_PWMOut(); // 开启245PWM输出
-        break;
+        switch (AllStatus_S.SolderingModelNumber)
+        {
+        case SOLDERING_MODEL_T115:
+            Drive_MosSwitch210_PWMOut(); // 开启115PWM输出
+            break;
+        case SOLDERING_MODEL_T210:
+            Drive_MosSwitch210_PWMOut(); // 开启210PWM输出
+            break;
+        case SOLDERING_MODEL_T245:
+            Drive_MosSwitch245_PWMOut(); // 开启245PWM输出
+            break;
+        }
+    }
+    else
+    {
+        AllStatus_S.pid_s.outCmd = 0;
+        return;
     }
 
     if (CurTemp > (TarTemp + AllStatus_S.pid_s.pid_iItemQuitTemp))
@@ -50,6 +75,51 @@ static void app_pid_iCmd(uint16_t TarTemp, float32_t CurTemp)
     }
 
     app_pidOutCmd();
+}
+
+#ifndef APP_MAX_POWER_MIN_TEMP
+#define APP_MAX_POWER_MIN_TEMP 150 // 触发强制最大功率的最低目标温度
+#endif
+
+#ifndef APP_MAX_POWER_SWITCH_COUNT_ON
+#define APP_MAX_POWER_SWITCH_COUNT_ON 50 // 进入最大功率状态所需连续判定次数
+#endif
+
+#ifndef APP_MAX_POWER_SWITCH_COUNT_OFF
+#define APP_MAX_POWER_SWITCH_COUNT_OFF 2 // 退出最大功率状态所需连续判定次数
+#endif
+
+// 最大功率输出滤波(进入/退出分离去抖)
+static uint16_t app_maxPowerControl(uint16_t TarTemp, float32_t CurTemp)
+{
+    uint8_t rawNeedMax =
+        (TarTemp > APP_MAX_POWER_MIN_TEMP) &&
+        (CurTemp < (TarTemp - AllStatus_S.pid_s.diffTempOutMaxPWM));
+
+    static uint8_t stableNeedMax = 0;  // 0=正常；1=强制最大功率
+    static uint16_t switchCounter = 0; // 去抖计数
+
+    if (rawNeedMax != stableNeedMax)
+    {
+        // 使用不同的阈值：进入与退出
+        uint16_t threshold = rawNeedMax ? APP_MAX_POWER_SWITCH_COUNT_ON
+                                        : APP_MAX_POWER_SWITCH_COUNT_OFF;
+
+        if (++switchCounter >= threshold)
+        {
+            stableNeedMax = rawNeedMax;
+            switchCounter = 0;
+        }
+    }
+    else
+    {
+        switchCounter = 0;
+    }
+
+    if (stableNeedMax)
+        return AllStatus_S.pid_s.pid_outMax;
+
+    return (uint16_t)AllStatus_S.pid_s.pid_out;
 }
 
 void app_pidControl(uint16_t TarTemp, float32_t CurTemp)
@@ -93,9 +163,7 @@ void app_pidControl(uint16_t TarTemp, float32_t CurTemp)
         if (AllStatus_S.pid_s.pid_out > AllStatus_S.pid_s.pid_outMax)
             AllStatus_S.pid_s.pid_out = AllStatus_S.pid_s.pid_outMax;
 
-        if ((CurTemp < (TarTemp - AllStatus_S.pid_s.diffTempOutMaxPWM)) && (TarTemp > 150)) // 温度过低，强制输出最大功率
-            AllStatus_S.pid_s.pid_out = AllStatus_S.pid_s.pid_outMax;
-
+        AllStatus_S.pid_s.pid_out = app_maxPowerControl(TarTemp, CurTemp);
         Drive_MosSwitch_SetDuty(AllStatus_S.pid_s.pid_out);
     }
 }

@@ -95,7 +95,7 @@ static void Drive_TIM3_PWM(void)
     }
 }
 
-static void Drive_MosPWMoutMode(void)
+void Drive_MosPWMoutMode(void)
 {
     Drive_TIM3_INIT();
 

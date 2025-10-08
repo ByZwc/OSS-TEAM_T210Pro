@@ -521,50 +521,25 @@ void app_SolderingTempDisplay(void)
     }
 }
 
-void APP_SleepCloseBackLight_Task(void)
-{
-    if (AllStatus_S.SolderingState == SOLDERING_STATE_SLEEP_DEEP)
-    {
-        if (AllStatus_S.sleep_cnt < 61)
-            AllStatus_S.sleep_cnt++;
-
-        if (AllStatus_S.sleep_cnt == TIME_TO_CLOSE_BACKLIGHT)
-        {
-            if (AllStatus_S.flashSave_s.BackgroundLightOnoff)
-            {
-                Drive_BackLed_OnOff(0); // 关闭背光
-                Drive_Buz_OnOff(BUZ_1S, BUZ_FREQ_CHANGE_OFF, USE_BUZ_TYPE);
-            }
-        }
-    }
-    else
-    {
-        AllStatus_S.sleep_cnt = 0;
-    }
-}
-
-#define SLEEP_BACKLIGHT_FLASH_PERIOD_MS 10 // 背光闪烁周期（ms）
-#define SLEEP_BACKLIGHT_ON_TIME_MS 3       // 10ms周期内点亮时间（ms）
-
 void APP_SleepBackLight_Task(void)
 {
-    static uint16_t ms_counter = 0;
+    static uint8_t last_state = 0;
 
     if (AllStatus_S.SolderingState == SOLDERING_STATE_SLEEP_DEEP &&
         AllStatus_S.flashSave_s.BackgroundLightOnoff)
     {
-        ms_counter++;
-        if (ms_counter >= SLEEP_BACKLIGHT_FLASH_PERIOD_MS)
-            ms_counter = 0;
-        if (ms_counter < SLEEP_BACKLIGHT_ON_TIME_MS)
-            Drive_BackLed_OnOff(1); // 点亮背光
-        else
-            Drive_BackLed_OnOff(0); // 熄灭背光
+        if (last_state != 1)
+        {
+            Drive_BackLed_PWMOut();
+            last_state = 1;
+        }
     }
     else
     {
-        ms_counter = 0;
-        Drive_BackLed_OnOff(1); // 常亮背光
+        if (last_state != 2)
+        {
+            Drive_BackLed_Init(); // 常亮背光
+            last_state = 2;
+        }
     }
 }
-
